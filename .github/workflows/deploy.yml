@@ -2,17 +2,18 @@
 #
 # How it works: GitHub Actions runs the Forge CLI for you.
 # Before the first run, set these up (all doable from a phone browser):
-#   1. Create the app in the Atlassian developer console
-#      (developer.atlassian.com/console) and put its real app id in
-#      manifest.yml (replace the <your app id ...> placeholder).
-#      Until then this workflow fails at `forge deploy` — that is
-#      expected, not a bug in the workflow.
-#   2. Get a free Atlassian Cloud dev site (go.atlassian.com/cloud-dev).
-#   3. Create an Atlassian API token (id.atlassian.com -> Security
+#   1. Get a free Atlassian Cloud dev site (go.atlassian.com/cloud-dev).
+#   2. Create an Atlassian API token (id.atlassian.com -> Security
 #      -> API tokens).
-#   4. In this repo: Settings -> Secrets and variables -> Actions,
+#   3. In this repo: Settings -> Secrets and variables -> Actions,
 #      add FORGE_EMAIL (your Atlassian email) and FORGE_API_TOKEN
 #      (the token).
+# The workflow registers the app itself on the first run (the
+# developer console has no web form to create a Forge app — its
+# Create menu only offers docs and OAuth, so `forge register`
+# runs here instead, into your "Eric" Developer Space, and the
+# app id is committed back into manifest.yml). No console step
+# needed, and no payment method is added anywhere.
 # Then: Actions tab -> Deploy to Forge -> Run workflow -> enter your
 # site (e.g. eric-again.atlassian.net) -> Run. Green = deployed and
 # installed on your dev site (Jira AND Confluence — this app has a
@@ -57,6 +58,18 @@ jobs:
       - run: forge settings set usage-analytics false
       - name: Lint
         run: forge lint
+      - name: Register app (first run only)
+        run: |
+          if grep -q "your app id" manifest.yml; then
+            forge register "Decision Log" --non-interactive -y -s 545a0d7d-021a-453c-91c7-fb39d6337314
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add manifest.yml
+            git commit -m "Register Forge app id" || true
+            git push || true
+          else
+            echo "App already registered, skipping."
+          fi
       - name: Deploy
         run: forge deploy -e ${{ inputs.environment }}
       - name: Install on dev site (Jira)
