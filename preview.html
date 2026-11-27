@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decision Log — Preview (not the Forge app)</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 16px; color: #172b4d; background: #f4f5f7; }
+  .card { background: #fff; border: 1px solid #dfe1e6; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+  h1 { font-size: 20px; } h2 { font-size: 15px; margin: 0 0 8px; }
+  input, textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 8px; border: 1px solid #dfe1e6; border-radius: 4px; margin-bottom: 8px; }
+  textarea { min-height: 70px; }
+  button { font: inherit; background: #0052cc; color: #fff; border: 0; border-radius: 4px; padding: 10px 16px; margin-right: 8px; }
+  li { margin-bottom: 6px; }
+  .note { font-size: 13px; color: #5e6c84; }
+  .tag { display: inline-block; background: #e6f2ff; border-radius: 4px; padding: 2px 8px; font-size: 13px; margin-right: 6px; }
+</style>
+</head>
+<body>
+<h1>📋 Decision Log — preview</h1>
+<p class="note">Phone preview of the matching logic only. The real app is a Forge
+app: a Confluence macro that records a decision on a page, and a Jira
+issue panel that surfaces past decisions touching an issue. Decisions
+persist in Forge Storage — nothing here is stored.</p>
+
+<div class="card">
+  <h2>Record a decision</h2>
+  <input id="title" value="Use Forge Storage for decisions">
+  <textarea id="decision">Store decision records in Forge Storage, not in page text.</textarea>
+  <input id="deciders" value="Ada, Ben">
+  <input id="date" value="2026-11-27">
+  <input id="topics" value="storage, forge">
+  <button onclick="save()">Record decision</button>
+</div>
+
+<div class="card">
+  <h2>Open a Jira issue — what past decisions touch it?</h2>
+  <input id="issue" value="Forge Storage design">
+  <textarea id="desc">Where do we store decisions, and how do we find them later?</textarea>
+  <button onclick="check()">Check past decisions</button>
+  <div id="out" style="margin-top:12px"></div>
+</div>
+
+<div class="card">
+  <h2>Recorded decisions (<span id="count">0</span>)</h2>
+  <ul id="list"></ul>
+</div>
+
+<script>
+const store = [
+  { title: "Use Postgres for the new service", decision: "Pick Postgres over MySQL for the new service.", deciders: ["Ada"], date: "2026-10-02", status: "current", topics: ["database", "postgres"] },
+  { title: "Use MySQL for the old service", decision: "The old service stays on MySQL.", deciders: ["Ben"], date: "2026-01-05", status: "superseded", topics: ["database", "mysql"] },
+];
+function words(t) { return String(t || "").toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/).filter(w => w.length > 2); }
+function score(d, ctx) {
+  const hay = new Set([...words(ctx.title), ...words(ctx.desc)]);
+  const topicHits = d.topics.filter(t => hay.has(t.toLowerCase())).length;
+  const titleHits = words(d.title).filter(w => hay.has(w)).length;
+  let s = topicHits * 2 + titleHits;
+  if (d.status === "superseded" || d.status === "expired") s -= 1;
+  return Math.max(0, s);
+}
+function render() {
+  document.getElementById("count").textContent = store.length;
+  document.getElementById("list").innerHTML = store.map(d =>
+    `<li><b>${d.title}</b> — ${d.decision} <span class="tag">${d.status}</span> ${d.date}, ${d.deciders.join(", ")} · topics: ${d.topics.join(", ")}</li>`).join("");
+}
+function save() {
+  const d = {
+    title: document.getElementById("title").value.trim(),
+    decision: document.getElementById("decision").value.trim(),
+    deciders: document.getElementById("deciders").value.split(",").map(s => s.trim()).filter(Boolean),
+    date: document.getElementById("date").value.trim(),
+    status: "current",
+    topics: document.getElementById("topics").value.split(",").map(s => s.trim()).filter(Boolean),
+  };
+  const missing = [];
+  if (!d.title) missing.push("title");
+  if (!d.decision) missing.push("decision");
+  if (!d.deciders.length) missing.push("deciders");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date)) missing.push("date (YYYY-MM-DD)");
+  if (missing.length) { alert("Still a draft — missing: " + missing.join(", ")); return; }
+  store.push(d);
+  render();
+}
+function check() {
+  const ctx = { title: document.getElementById("issue").value, desc: document.getElementById("desc").value };
+  const found = store.map(d => ({ ...d, relevance: score(d, ctx) })).filter(d => d.relevance > 0)
+    .sort((a, b) => b.relevance - a.relevance).slice(0, 3);
+  document.getElementById("out").innerHTML = found.length
+    ? "<b>Past decisions touching this issue:</b><ul>" + found.map(d =>
+        `<li><b>${d.title}</b> — ${d.decision} <span class="tag">${d.status}</span> (relevance ${d.relevance})</li>`).join("") + "</ul>"
+    : "<b>No earlier decision touches this topic.</b> If this issue decides something, record it with the macro.";
+}
+render();
+</script>
+</body>
+</html>

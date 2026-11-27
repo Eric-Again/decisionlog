@@ -1,0 +1,37 @@
+modules:
+  confluence:macro:
+    - key: decision-log-macro
+      resource: macro
+      resolver:
+        function: resolver
+      render: native
+      title: Decision Log
+      description: Record a decision on this page — what was decided, who decided it, when — and see whether it still stands.
+      icon: https://developer.atlassian.com/platform/forge/images/icons/macro-icon.svg
+  jira:issuePanel:
+    - key: decision-log-issue-panel
+      resource: panel
+      resolver:
+        function: resolver
+      render: native
+      title: Past decisions
+      icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
+  function:
+    - key: resolver
+      handler: index.handler
+resources:
+  - key: macro
+    path: src/frontend/macro.jsx
+  - key: panel
+    path: src/frontend/panel.jsx
+app:
+  runtime:
+    name: nodejs24.x
+  id: <your app id — assigned by `forge create`, do not invent one>
+  licensing:
+    enabled: false
+permissions:
+  scopes:
+    - read:confluence-content.all
+    - read:jira-work
+    - storage:app
