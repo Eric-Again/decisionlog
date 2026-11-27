@@ -1,0 +1,67 @@
+# Deploy Decision Log to Forge from your phone — no laptop, no terminal.
+#
+# How it works: GitHub Actions runs the Forge CLI for you.
+# Before the first run, set these up (all doable from a phone browser):
+#   1. Create the app in the Atlassian developer console
+#      (developer.atlassian.com/console) and put its real app id in
+#      manifest.yml (replace the <your app id ...> placeholder).
+#      Until then this workflow fails at `forge deploy` — that is
+#      expected, not a bug in the workflow.
+#   2. Get a free Atlassian Cloud dev site (go.atlassian.com/cloud-dev).
+#   3. Create an Atlassian API token (id.atlassian.com -> Security
+#      -> API tokens).
+#   4. In this repo: Settings -> Secrets and variables -> Actions,
+#      add FORGE_EMAIL (your Atlassian email) and FORGE_API_TOKEN
+#      (the token).
+# Then: Actions tab -> Deploy to Forge -> Run workflow -> enter your
+# site (e.g. eric-again.atlassian.net) -> Run. Green = deployed and
+# installed on your dev site (Jira AND Confluence — this app has a
+# module for each).
+#
+# Production: run with environment=production to deploy the version
+# judges get. Production does NOT install to your dev site — the
+# judges' installation link comes from the developer console ->
+# Distribution -> Sharing after the production deploy.
+name: Deploy to Forge
+
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: "Your Atlassian Cloud dev site (e.g. eric-again.atlassian.net)"
+        required: true
+        type: string
+      environment:
+        description: "Forge environment to deploy"
+        required: true
+        default: development
+        type: choice
+        options: [development, production]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      FORGE_EMAIL: ${{ secrets.FORGE_EMAIL }}
+      FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Install Forge CLI
+        run: npm install -g @forge/cli@16 --omit optional
+      - run: forge settings set usage-analytics false
+      - name: Lint
+        run: forge lint
+      - name: Deploy
+        run: forge deploy -e ${{ inputs.environment }}
+      - name: Install on dev site (Jira)
+        if: inputs.environment == 'development'
+        run: forge install --non-interactive --confirm-scopes -e development -s ${{ inputs.site }} -p jira
+      - name: Install on dev site (Confluence)
+        if: inputs.environment == 'development'
+        run: forge install --non-interactive --confirm-scopes -e development -s ${{ inputs.site }} -p confluence
