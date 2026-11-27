@@ -56,6 +56,25 @@ Forge CLI 16.0.0 was checked here earlier (Node 24.22.1 meets
 the CLI's Node 22/24 requirement), but `forge lint` / `forge
 deploy` need `forge login` with your Atlassian account — that
 step is yours, on a laptop.
+
+## Deploy from your phone (GitHub Actions — no laptop)
+`.github/workflows/deploy.yml` runs the Forge CLI in GitHub
+Actions. Before the first run, from your phone browser:
+1. Get a free Atlassian Cloud dev site (go.atlassian.com/cloud-dev).
+2. Create an Atlassian API token (id.atlassian.com -> Security
+   -> API tokens).
+3. In this repo: Settings -> Secrets and variables -> Actions,
+   add `FORGE_EMAIL` and `FORGE_API_TOKEN`.
+The workflow registers the app itself on the first run — the
+developer console has no web form to create a Forge app, so
+`forge register` runs in the workflow instead and the app id
+is committed back into `manifest.yml`. No console step needed.
+Then: Actions tab -> Deploy to Forge -> Run workflow -> enter
+your site -> Run. Green = deployed + installed on your dev site
+(Jira AND Confluence). Run it with environment=production for
+the judges' version; production does not install to your dev
+site — the judges' installation link comes from the developer
+console -> Distribution -> Sharing after the production deploy.
 1. Install Node 22.x or 24.x, then `npm install -g @forge/cli`
 2. `forge login` (Atlassian account + API token)
 3. `forge create` — pick a template, or copy these files into
